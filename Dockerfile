@@ -3,7 +3,21 @@
 FROM ubuntu:25.04
 
 ENV INSTALLATION_DIRECTORY=/opt
+ENV PRELOADED_DATA_DIRECTORY=/opt/data
 RUN apt-get update
+
+# Download reference genomes
+
+WORKDIR $PRELOADED_DATA_DIRECTORY
+COPY process_reference.sh .
+# 🚧 TODO: test
+RUN bash process_reference.sh ${PRELOADED_DATA_DIRECTORY}/references GRCh37 13
+RUN bash process_reference.sh ${PRELOADED_DATA_DIRECTORY}/references GRCh38.p13 39
+
+# Download CrossMap mapping files
+
+# 🚧 TODO: get hg19ToHg38.over.chain.gz
+# https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/
 
 # Install BCFtools (see https://samtools.github.io/bcftools/howtos/install.html)
 # and Samtools (see https://github.com/samtools/samtools/blob/develop/INSTALL)
@@ -53,6 +67,20 @@ RUN wget ${PLINK_URL}/${PLINK_FILE}
 RUN unzip ${PLINK_FILE}
 RUN rm ${PLINK_FILE}
 ENV PATH="$PATH:$INSTALLATION_DIRECTORY/plink"
+
+# Install Beagle (for imputation)
+
+WORKDIR $INSTALLATION_DIRECTORY
+RUN apt-get install -y openjdk-17-jdk
+ENV BEAGLE_VERSION=27Feb25.75f
+RUN wget https://faculty.washington.edu/browning/beagle/beagle.${BEAGLE_VERSION}.jar
+RUN mv beagle.${BEAGLE_VERSION}.jar beagle.jar
+ENV PATH="$PATH:$INSTALLATION_DIRECTORY/beagle.jar"
+RUN wget https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/plink.GRCh38.map.zip
+RUN unzip plink.GRCh38.map.zip -d maps
+RUN rm plink.GRCh38.map.zip
+# 🚧 TODO: move to some meaningful directory
+RUN wget -r -np -R index.html https://bochet.gcc.biostat.washington.edu/beagle/1000_Genomes_phase3_v5a/b37.bref3/
 
 # Install helper tools
 

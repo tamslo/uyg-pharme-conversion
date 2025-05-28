@@ -1,7 +1,5 @@
 # UYG to PharMe Data Conversion
 
-🚧 Work in progress, still figuring this out!
-
 Dockerfile and instructions to convert (my) genetic data from the (2020) UYG
 course :bulb: to a format that can be used by PharMe. :dna::pill:
 
@@ -9,13 +7,9 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
 * Your genetic data in 23andMe format or in PLINK format
 * Docker installed
-* If your data is in 23andMe format, download the regarding reference file for
-  VCF conversion (see the [Reference Genome Notes](#reference-genome-notes)
-  section)
-* Potentially rename your data to match commands:
-  * Genetic data in `data/data.txt` (23andMe format) or in
+* Potentially rename your data to match commands (or rename the paths in the
+  commands below): `data/data.txt` (23andMe format) or in
     `data/data.bim`, `data/data.bed`, `data/data.fam` (PLINK format)
-  * Reference file (if needed) in `references/GRCh37.23andMe.fa`
 
 ## How to use
 
@@ -26,7 +20,7 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
      ```bash
      docker run --rm -v ./data:/data -w /data uyg-to-pharme \
        bcftools convert  -c ID,CHROM,POS,AA --tsv2vcf data.txt \
-         -f references/GRCh37.23andMe.fa -s Sample -Oz -o data.vcf
+         -f /opt/data/references/GRCh37.23andMe.fa -s Sample -Oz -o data.vcf
      ```
 
      (for more information refer to this
@@ -39,18 +33,18 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
          --recode vcf --out data
      ```
 
-3. Call star alleles with PharmCAT (you can also use another tool for star
-   allele calling, but this example uses PharmCAT):
-   * Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/)):
+3. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
+   if you run into any problems, such as a lot of missing variants, please
+   refer to the [Manual Preprocessing](#manual-preprocessing) section
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
        pharmcat_vcf_preprocessor -v -vcf data.vcf
      ```
 
-   * If you run into any problems, such as a lot of missing variants, please
-     refer to the [Manual Preprocessing](#manual-preprocessing) section
-   * Run PharmCAT
+4. Optionally, impute your data; if you are not imputing, PharmCAT will have
+   quite some missing variants (see [Imputation](#imputation))
+5. Run PharmCAT
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
@@ -60,8 +54,8 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
 ## Reference Genome Notes
 
-📝 _Note: Most tools require the uncompressed files, so you might need to_
-_decompress them._
+Different reference genomes are available from different sources, that may
+differ in their notations, e.g.:
 
 * The Ensembl hg19 reference genome:
   [Ensembl GRCh37](https://ftp.ensembl.org/pub/grch37/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz)
@@ -70,13 +64,7 @@ _decompress them._
 * The NCBI hg38 reference genome (what PharMe works with):
   [GRCh38.p13](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.39/)
 
-When using the NCBI reference genome with your 23andMe data, add the chromosome
-number to the beginning of each header with the following command:
-
-`sed -E 's/>(NC_[0-9]+\.[0-9]+) Homo sapiens chromosome ([0-9XY]+)([a-zA-Z ]*), GRCh37 ([a-zA-Z ]*)/>\2 \1 Homo sapiens chromosome \2\3, GRCh37 \4/' data/references/GRCh37.fa > data/references/GRCh37.23andMe.fa`
-
-Test that chromosomes were adapted with
-`grep -E '^>[0-9XY]+ N' data/references/GRCh37.23andMe.fa`.
+The NCBI reference genomes are loaded and preprocessed in the Dockerfile.
 
 ## Manual Preprocessing
 
@@ -85,17 +73,12 @@ Manual preprocessing steps to fix and/or clarify problems.
 ### Liftover
 
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
-CrossMap (assumes `GRCh38.p13.fa` and the `hg19ToHg38.over.chain.gz` file
-[from UCSC](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/)
-to be present):
+CrossMap:
   
 ```bash
-sed -E 's/>(NC_[0-9]+\.[0-9]+) Homo sapiens chromosome ([0-9XY]+)([a-zA-Z ]*), GRCh38.p13 ([a-zA-Z ]*)/>\2 \1 Homo sapiens chromosome \2\3, GRCh38.p13 \4/' data/references/GRCh38.p13.fa > data/references/GRCh38.23andMe.fa
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  samtools faidx references/GRCh38.23andMe.fa
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  CrossMap vcf --no-comp-alleles references/hg19ToHg38.over.chain.gz data.vcf \
-  references/GRCh38.23andMe.fa data.hg38.vcf
+  CrossMap vcf --no-comp-alleles /opt/data/references/hg19ToHg38.over.chain.gz \
+  data.vcf /opt/data/references/GRCh38.p13.23andMe.fa data.hg38.vcf
 ```
 
 ### Normalization
@@ -105,7 +88,7 @@ To normalize the VCF file, run
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bcftools norm -m+ -c ws -Oz -o data.normalized.vcf \
-  -f references/GRCh38.23andMe.fa data.hg38.vcf
+  -f /opt/data/references/GRCh38.p13.23andMe.fa data.hg38.vcf
 ```
 
 (also see
@@ -137,7 +120,17 @@ You can check the content of (intermediate) compressed processed VCFs (when
 running the preprocessing command with the `-k` option) with:
 `docker run --rm -v ./data:/data -w /data uyg-to-pharme bgzip -k -d data.vcf.bgz`
 
-## TODOs
+## Imputation
 
-* Describe how to load into PharMe
-* Imputation
+... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
+
+🚧 _TODO: use map and ref files, probably iterate per chromosome_
+
+```bash
+docker run --rm -v ./data:/data -w /data uyg-to-pharme \
+  java -jar /opt/beagle.jar gt=data.hg38.vcf out=imputed map=/opt/data/imputation/plink.GRCh37.map
+```
+
+## Load Into PharMe
+
+🚧 _TODO: parse and describe how to load into PharMe_
