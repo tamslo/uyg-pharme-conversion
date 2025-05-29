@@ -74,4 +74,7 @@ RUN mv beagle.${BEAGLE_VERSION}.jar beagle.jar
 # Includes bgzip
 RUN apt-get install -y tabix
 
+COPY data/scripts/requirements.txt .
+RUN pip3 install -r requirements.txt --break-system-packages
+
 WORKDIR ${INSTALLATION_DIRECTORY}

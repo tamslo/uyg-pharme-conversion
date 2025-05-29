@@ -78,14 +78,22 @@ Manual preprocessing steps to fix and/or clarify problems. Also see
 ### Liftover
 
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
-CrossMap:
+CrossMap.
+
+CrossMap only adapts the positions in the file but not the genotypes, which is
+why there is an additional script. However, it will take a while (sorry for
+that), you may want to grab a tea (or several). 🍵
+
+You can also use alternative liftover tools, e.g., from GATK/Picard or BCFtools,
+if you want to set them up yourself.
   
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   CrossMap vcf --no-comp-alleles /data/references/hg19ToHg38.over.chain.gz \
-    data.vcf /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.vcf
+    data.vcf /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.only-positions.vcf
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  python3 scripts/update_genotypes.py data.hg38.vcf data.vcf
+  python3 scripts/validate_and_update_genotypes.py \
+    data.hg38.only-positions.vcf data.vcf data.hg38.vcf
 ```
 
 ### Normalization
@@ -125,7 +133,7 @@ running the preprocessing command with the `-k` option) with:
 
 ... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
 
-🚧 _TODO: fix in preprocessing that reference is alternative after liftover_
+🚧 _TODO: update genotypes after liftover_
    _but genotype stayed 1/1_
 🚧 _TODO: iterate per chromosome_
 🚧 _TODO: merge_
