@@ -14,13 +14,16 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 ## How to use
 
 1. Build Docker container `docker build -t uyg-to-pharme .`
-2. Convert your data to VCF
+2. Download reference files as needed, using
+   `docker run --rm -v ./data:/data -w /data uyg-to-pharme bash scripts/download_reference_data.sh`
+   (you may not need all data, you can comment out what you will not need)
+3. Convert your data to VCF
    * If your data is in 23andMe format, use
 
      ```bash
      docker run --rm -v ./data:/data -w /data uyg-to-pharme \
        bcftools convert  -c ID,CHROM,POS,AA --tsv2vcf data.txt \
-         -f /opt/data/references/GRCh37.23andMe.fa -s Sample -Oz -o data.vcf
+         -f /data/references/genomes/GRCh37.23andMe.fa -s Sample -Oz -o data.vcf
      ```
 
      (for more information refer to this
@@ -33,7 +36,7 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
          --recode vcf --out data
      ```
 
-3. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
+4. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
    if you run into any problems, such as a lot of missing variants, please
    refer to the [Manual Preprocessing](#manual-preprocessing) section
 
@@ -42,13 +45,13 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
        pharmcat_vcf_preprocessor -v -vcf data.vcf
      ```
 
-4. Optionally, impute your data; if you are not imputing, PharmCAT will have
+5. Optionally, impute your data; if you are not imputing, PharmCAT will have
    quite some missing variants (see [Imputation](#imputation))
-5. Run PharmCAT
+6. Run PharmCAT
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
-       pharmcat_pipeline data.preprocessed.vcf
+       pharmcat_pipeline data.imputed.vcf
 
      ```
 
@@ -64,11 +67,13 @@ differ in their notations, e.g.:
 * The NCBI hg38 reference genome (what PharMe works with):
   [GRCh38.p13](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.39/)
 
-The NCBI reference genomes are loaded and preprocessed in the Dockerfile.
+The NCBI reference genomes are loaded and preprocessed in the
+`download_reference_data.sh` script.
 
 ## Manual Preprocessing
 
-Manual preprocessing steps to fix and/or clarify problems.
+Manual preprocessing steps to fix and/or clarify problems. Also see
+[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements/#requirement-3---use-parsimonious-left-aligned-variant-representation).
 
 ### Liftover
 
@@ -77,8 +82,10 @@ CrossMap:
   
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  CrossMap vcf --no-comp-alleles /opt/data/references/hg19ToHg38.over.chain.gz \
-  data.vcf /opt/data/references/GRCh38.p13.23andMe.fa data.hg38.vcf
+  CrossMap vcf --no-comp-alleles /data/references/hg19ToHg38.over.chain.gz \
+    data.vcf /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.vcf
+docker run --rm -v ./data:/data -w /data uyg-to-pharme \
+  python3 scripts/update_genotypes.py data.hg38.vcf data.vcf
 ```
 
 ### Normalization
@@ -88,11 +95,8 @@ To normalize the VCF file, run
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bcftools norm -m+ -c ws -Oz -o data.normalized.vcf \
-  -f /opt/data/references/GRCh38.p13.23andMe.fa data.hg38.vcf
+  -f /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.vcf
 ```
-
-(also see
-[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements/#requirement-3---use-parsimonious-left-aligned-variant-representation)).
 
 ### Sort by Position
 
@@ -111,9 +115,6 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   > data/data.preprocessed.vcf
 ```
 
-(also see
-[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements/#requirement-5---the-chrom-field-must-be-in-the-format-chr)).
-
 ### Inspecting PharmCAT Created Files
 
 You can check the content of (intermediate) compressed processed VCFs (when
@@ -124,11 +125,18 @@ running the preprocessing command with the `-k` option) with:
 
 ... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
 
-🚧 _TODO: use map and ref files, probably iterate per chromosome_
+🚧 _TODO: fix in preprocessing that reference is alternative after liftover_
+   _but genotype stayed 1/1_
+🚧 _TODO: iterate per chromosome_
+🚧 _TODO: merge_
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  java -jar /opt/beagle.jar gt=data.hg38.vcf out=imputed map=/opt/data/imputation/plink.GRCh37.map
+  java -jar /opt/beagle.jar gt=data.preprocessed.vcf \
+    out=imputed.chr1 \
+    chrom=1 \
+    map=/data/references/imputation/maps/plink.chr1.GRCh38.map \
+    ref=/data/references/imputation/reference/chr1.1kg.phase3.v5a.b37.bref3
 ```
 
 ## Load Into PharMe

@@ -3,21 +3,20 @@
 FROM ubuntu:25.04
 
 ENV INSTALLATION_DIRECTORY=/opt
-ENV PRELOADED_DATA_DIRECTORY=/opt/data
 RUN apt-get update
 
-# Download reference genomes
+# Install plink (see https://www.cog-genomics.org/plink/1.9/)
 
-WORKDIR $PRELOADED_DATA_DIRECTORY
-COPY process_reference.sh .
-# 🚧 TODO: test
-RUN bash process_reference.sh ${PRELOADED_DATA_DIRECTORY}/references GRCh37 13
-RUN bash process_reference.sh ${PRELOADED_DATA_DIRECTORY}/references GRCh38.p13 39
+RUN apt-get install -y unzip
+RUN apt-get install -y wget
 
-# Download CrossMap mapping files
-
-# 🚧 TODO: get hg19ToHg38.over.chain.gz
-# https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/
+WORKDIR $INSTALLATION_DIRECTORY/plink
+ENV PLINK_URL=https://s3.amazonaws.com/plink1-assets
+ENV PLINK_FILE=plink_linux_x86_64_20241022.zip
+RUN wget ${PLINK_URL}/${PLINK_FILE}
+RUN unzip ${PLINK_FILE}
+RUN rm ${PLINK_FILE}
+ENV PATH="$PATH:$INSTALLATION_DIRECTORY/plink"
 
 # Install BCFtools (see https://samtools.github.io/bcftools/howtos/install.html)
 # and Samtools (see https://github.com/samtools/samtools/blob/develop/INSTALL)
@@ -55,18 +54,12 @@ RUN ./configure
 RUN make
 RUN make install
 
-# Install plink (see https://www.cog-genomics.org/plink/1.9/)
+# Install CrossMap
 
-RUN apt-get install -y wget
-RUN apt-get install -y unzip
+RUN apt-get install -y python3
+RUN apt-get install -y python3-pip
+RUN pip3 install CrossMap --break-system-packages
 
-WORKDIR $INSTALLATION_DIRECTORY/plink
-ENV PLINK_URL=https://s3.amazonaws.com/plink1-assets
-ENV PLINK_FILE=plink_linux_x86_64_20241022.zip
-RUN wget ${PLINK_URL}/${PLINK_FILE}
-RUN unzip ${PLINK_FILE}
-RUN rm ${PLINK_FILE}
-ENV PATH="$PATH:$INSTALLATION_DIRECTORY/plink"
 
 # Install Beagle (for imputation)
 
@@ -75,19 +68,10 @@ RUN apt-get install -y openjdk-17-jdk
 ENV BEAGLE_VERSION=27Feb25.75f
 RUN wget https://faculty.washington.edu/browning/beagle/beagle.${BEAGLE_VERSION}.jar
 RUN mv beagle.${BEAGLE_VERSION}.jar beagle.jar
-ENV PATH="$PATH:$INSTALLATION_DIRECTORY/beagle.jar"
-RUN wget https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/plink.GRCh38.map.zip
-RUN unzip plink.GRCh38.map.zip -d maps
-RUN rm plink.GRCh38.map.zip
-# 🚧 TODO: move to some meaningful directory
-RUN wget -r -np -R index.html https://bochet.gcc.biostat.washington.edu/beagle/1000_Genomes_phase3_v5a/b37.bref3/
 
-# Install helper tools
+# Install further helper tools
 
 # Includes bgzip
 RUN apt-get install -y tabix
 
-# To map to another reference
-RUN apt-get install -y python3
-RUN apt-get install -y python3-pip
-RUN pip3 install CrossMap --break-system-packages
+WORKDIR ${INSTALLATION_DIRECTORY}
