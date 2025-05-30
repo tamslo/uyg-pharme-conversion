@@ -3,9 +3,11 @@
 import os
 import pandas as pd
 import sys
-from datetime import datetime
 
-print(f'Starting genotype update script at {datetime.now()}. 🏃 This will take a while ⏳🫠', flush=True)
+VCF_COMMENT = '#'
+VCF_SEPARATOR = '\t'
+
+print(f'Starting genotype update... 🏃', flush=True)
 
 hg38_vcf_file_name = sys.argv[1]
 hg19_vcf_file_name = sys.argv[2]
@@ -25,52 +27,101 @@ def read_vcf(file_name):
         vcf_header = None
         for line in vcf_file:
             if line.startswith('#CHROM'):
-                clean_header_line = line.removeprefix('#').strip().lower()
-                vcf_header = clean_header_line.split('\t')
+                clean_header_line = line.removeprefix(VCF_COMMENT).strip().lower()
+                vcf_header = clean_header_line.split(VCF_SEPARATOR)
                 break
         vcf_data = pd.read_csv(
             vcf_file,
-            sep='\t',
-            comment='#',
-            header=0,
+            sep=VCF_SEPARATOR,
+            comment=VCF_COMMENT,
             names=vcf_header,
+            # index_col='id',
             dtype={ 'chrom': 'str' }
         )
+        vcf_data = vcf_data.set_index('id', drop=False)
     return vcf_data
 
 hg19_lookup_data = read_vcf(hg19_vcf_file_name)
+hg38_lookup_data = read_vcf(hg38_vcf_file_name)
 
-def read_vcf_line(line):
-    if line.startswith('#'): return None, None, None, None
-    fields = line.strip().split('\t')
-    id=fields[2]
-    ref=fields[3]
-    alt=fields[4]
-    genotype=fields[9]
-    return id, ref, alt, genotype
+def is_allele_present(allele):
+    return not pd.isnull(allele) and allele != '.'
 
-def lookup_id(lookup_data, id):
-    lookup = lookup_data[lookup_data['id'] == id]
-    if len(lookup) > 1:
-        print(f'⚠️  Warning: multiple lookups in data for {id}. Ignoring all but first.', flush=True)
-    return lookup.head(1)
+def is_variant_inversion(hg19, hg38):
+    inversion_map = {
+        'A': 'T',
+        'C': 'G',
+        'G': 'C',
+        'T': 'A',
+        'N': 'N',
+    }
+    for key in ['ref', 'alt']:
+        if hg19[key] != inversion_map[hg38[key]]:
+            return False
+    return True
 
-# We could just iterate the pandas dataframe but it will be easier to just use
-# the line as it is in the file for now to avoid messing up the formatting
+for id, hg38_data in hg38_lookup_data.iterrows():
+    try:
+        hg19_data = hg19_lookup_data.loc[id]
+    except IndexError:
+        print(f'❌ Error: no lookup in data for {id}. Filtering out.', flush=True)
+        continue
 
-with open(output_file_name, 'w') as output_file:
-    with open(hg38_vcf_file_name, 'r') as hg38_vcf_file:
-        for line in hg38_vcf_file:
-            id, ref, alt, genotype = read_vcf_line(line)
-            if id == None:
-                output_file.write(line)
-                continue
-            hg19_data = lookup_id(hg19_lookup_data, id)
-            if hg19_data.empty:
-                print(f'❌ Error: no lookup in data for {id}. Filtering out.', flush=True)
-                continue
-            # TODO: do checks that nucleotides are as expected and potentially
-            # update genotypes or add alt in line
-            output_file.write(line)
+    ref_changed = hg19_data['ref'] != hg38_data['ref']
+    # If ALT and REF present, check that they did not change
+    if is_allele_present(hg38_data['alt']):
+        alt_changed = hg19_data['alt'] != hg38_data['alt']
+        if is_variant_inversion(hg19_data, hg38_data):
+            continue
+        if ref_changed or alt_changed:
+            print(f'❌ Changed nucleotides for {id}. Filtering out for now.', flush=True)
+            continue
+    else:
+        if not ref_changed:
+            continue
+        alt_is_now_ref = hg19_data['alt'] == hg38_data['ref']
+        if '0' in hg38_data['sample'] and not alt_is_now_ref:
+            print(f'❌ Changed reference for {id}. Filtering out for now.', flush=True)
+            continue
+        # print(hg38_data['alt'])
+        # break
+        # if alt_changed:
+        #     print(f'❌ Need to adapt alternative genotype for {id}. Filtering out for now.', flush=True)
+        #     continue
+    # # TODO: make work
+    # # Positions switched
+    # if pd.isnull(hg38_data['alt']) and '1' in hg38_data['sample']:
+    #     if not hg19_data['alt'] == hg38_data['ref']:
+    #         print(f'❌ Unexpected case for {id}. Filtering out.', flush=True)
+    #         continue
+    #     if not '0' in hg38_data['sample']:
+    #         hg38_data['sample'] = hg38_data['sample'].replace('1', '0')
+    #         continue
+    #     hg38_data['alt'] = hg19_data['ref']
+    #     if hg38_data['sample'].startswith('0'):
+    #         hg38_data['sample'] = '1/0'
+    #         continue
+    #     hg38_data['sample'] = '0/1'
+    # if '1' in hg38_data['sample'] and not hg19_data['ref'] == hg38_data['ref']:
+    #     print(f'❌ Unexpected case for {id}. Filtering out.', flush=True)
+    #     continue
+    # TODO: other cases?
 
-print(f'🏁 Script finished at {datetime.now()}!', flush=True)
+# with open(output_file_name, 'w') as output_file, open(hg38_vcf_file_name) as input_file:
+#     for line in input_file:
+#         if line.startswith(VCF_COMMENT):
+#             output_file.write(line)
+#         else:
+#             break
+
+# hg38_lookup_data.to_csv(
+#     output_file_name,
+#     mode='a',
+#     index=False,
+#     header=False,
+#     sep=VCF_SEPARATOR,
+#     chunksize=200000,
+#     encoding='utf-8',
+# )
+
+print(f'🏁 Script finished!', flush=True)

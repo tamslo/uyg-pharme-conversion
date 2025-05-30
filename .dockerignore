@@ -1,5 +1,6 @@
 .DS_Store
-Dockerfile
-/data
+.venv/
 /data/*
 !/data/scripts
+
+Dockerfile

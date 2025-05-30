@@ -81,8 +81,7 @@ Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
 CrossMap.
 
 CrossMap only adapts the positions in the file but not the genotypes, which is
-why there is an additional script. However, it will take a while (sorry for
-that), you may want to grab a tea (or several). 🍵
+why there is an additional script.
 
 You can also use alternative liftover tools, e.g., from GATK/Picard or BCFtools,
 if you want to set them up yourself.
