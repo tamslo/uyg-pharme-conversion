@@ -54,13 +54,6 @@ RUN ./configure
 RUN make
 RUN make install
 
-# Install CrossMap
-
-RUN apt-get install -y python3
-RUN apt-get install -y python3-pip
-RUN pip3 install CrossMap --break-system-packages
-
-
 # Install Beagle (for imputation)
 
 WORKDIR $INSTALLATION_DIRECTORY
@@ -73,8 +66,5 @@ RUN mv beagle.${BEAGLE_VERSION}.jar beagle.jar
 
 # Includes bgzip
 RUN apt-get install -y tabix
-
-COPY data/scripts/requirements.txt .
-RUN pip3 install -r requirements.txt --break-system-packages
 
 WORKDIR ${INSTALLATION_DIRECTORY}

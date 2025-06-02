@@ -73,26 +73,36 @@ The NCBI reference genomes are loaded and preprocessed in the
 ## Manual Preprocessing
 
 Manual preprocessing steps to fix and/or clarify problems. Also see
-[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements/#requirement-3---use-parsimonious-left-aligned-variant-representation).
+[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements).
 
 ### Liftover
 
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
-CrossMap.
+GATK/Picard.
 
-CrossMap only adapts the positions in the file but not the genotypes, which is
-why there is an additional script.
+This is taking a while, on an M3 MacBook Air with 16GB RAM it took TODO for me.
+You can maybe play around with the memory settings and parameters such as
+`--MAX_RECORDS_IN_RAM`.
 
-You can also use alternative liftover tools, e.g., from GATK/Picard or BCFtools,
-if you want to set them up yourself.
+TODOs:
+* Full run & time estimate
+* Might need to use chain file from
+  https://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/ (also change in
+  script)
+* Also should sort, won't need the extra step
+* Test with and without imputation
   
 ```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  CrossMap vcf --no-comp-alleles /data/references/hg19ToHg38.over.chain.gz \
-    data.vcf /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.only-positions.vcf
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  python3 scripts/validate_and_update_genotypes.py \
-    data.hg38.only-positions.vcf data.vcf data.hg38.vcf
+docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk \
+  CreateSequenceDictionary -R /data/references/genomes/GRCh38.p13.23andMe.fa
+docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
+  --java-options  "-Xmx14G" \
+  --TMP_DIR /data/liftover-temp \
+  -I /data/data.vcf \
+  -O /data/data.hg38.vcf \
+  --CHAIN /data/references/GRCh37_to_GRCh38.chain.gz \
+  --REJECT /data/liftover_rejected_variants.vcf \
+  -R /data/references/genomes/GRCh38.p13.23andMe.fa
 ```
 
 ### Normalization
