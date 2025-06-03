@@ -10,14 +10,15 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 * Potentially rename your data to match commands (or rename the paths in the
   commands below): `data/data.txt` (23andMe format) or in
     `data/data.bim`, `data/data.bed`, `data/data.fam` (PLINK format)
+* Build Docker container `docker build -t uyg-to-pharme .`
+* Potentially download reference files as needed, using
+   `docker run --rm -v ./data:/data -w /data uyg-to-pharme bash scripts/download_reference_data.sh`
+   (you may not need all data or any data, if the PharmCAT preprocessing works
+   for you, you can comment out what you will not need)
 
 ## How to use
 
-1. Build Docker container `docker build -t uyg-to-pharme .`
-2. Download reference files as needed, using
-   `docker run --rm -v ./data:/data -w /data uyg-to-pharme bash scripts/download_reference_data.sh`
-   (you may not need all data, you can comment out what you will not need)
-3. Convert your data to VCF
+1. Convert your data to VCF
    * If your data is in 23andMe format, use
 
      ```bash
@@ -36,7 +37,7 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
          --recode vcf --out data
      ```
 
-4. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
+2. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
    if you run into any problems, such as a lot of missing variants, please
    refer to the [Manual Preprocessing](#manual-preprocessing) section
 
@@ -45,13 +46,13 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
        pharmcat_vcf_preprocessor -v -vcf data.vcf
      ```
 
-5. Optionally, impute your data; if you are not imputing, PharmCAT will have
+3. Optionally, impute your data; if you are not imputing, PharmCAT will have
    quite some missing variants (see [Imputation](#imputation))
-6. Run PharmCAT
+4. Run PharmCAT
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
-       pharmcat_pipeline data.imputed.vcf
+       pharmcat_pipeline data.[preprocessed|imputed].vcf
 
      ```
 
@@ -97,6 +98,22 @@ docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
   -R /data/references/genomes/GRCh38.p13.23andMe.fa
 ```
 
+### Imputation
+
+... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
+(also see the
+[Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf))
+
+⚠️ _I had a problem for the Y chromosome reports, may be fixed if you actually_
+_have a Y chromosome; however, changing the ploidy to diploid for all Y_
+_variants for diploid in `apapt_y_ploidy.py` as part of the `impute.sh` script_
+_for now._
+
+```bash
+docker run --rm -v ./data:/data -w /data uyg-to-pharme \
+  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf
+```
+
 ### Normalization
 
 To normalize the VCF file, run
@@ -104,8 +121,16 @@ To normalize the VCF file, run
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bcftools norm -m+ -c ws -Oz -o data.normalized.vcf \
-  -f /data/references/genomes/GRCh38.p13.23andMe.fa data.hg38.vcf
+  -f /data/references/genomes/GRCh38.p13.23andMe.fa data.imputed.vcf
 ```
+
+If you did not impute, change the `data.imputed.vcf` to `data.hg38.vcf`.
+
+If problems with the imputed file occur, consider manually editing the
+`data.imputed.vcf`. E.g., if INFO or FORMAT fields cannot be merged for the same
+positions, change the first fields to `.`.
+
+_TODO: move the adaption part into script_
 
 ### Sort by Position
 
@@ -120,8 +145,8 @@ To prefix the chromosome with `chr`, use
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  perl -pe '/^((?!^chr).)*$/ && s/^([^#])/chr$1/gsi' data.sorted.vcf \
-  > data/data.preprocessed.vcf
+  perl -pe '/^((?!^chr).)*$/ && s/^([^#])/chr$1/gsi' \
+    data.sorted.vcf data.preprocessed.vcf
 ```
 
 ### Inspecting PharmCAT Created Files
@@ -129,24 +154,6 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
 You can check the content of (intermediate) compressed processed VCFs (when
 running the preprocessing command with the `-k` option) with:
 `docker run --rm -v ./data:/data -w /data uyg-to-pharme bgzip -k -d data.vcf.bgz`
-
-## Imputation
-
-... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
-
-🚧 _TODO: update genotypes after liftover_
-   _but genotype stayed 1/1_
-🚧 _TODO: iterate per chromosome_
-🚧 _TODO: merge_
-
-```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  java -jar /opt/beagle.jar gt=data.preprocessed.vcf \
-    out=imputed.chr1 \
-    chrom=1 \
-    map=/data/references/imputation/maps/plink.chr1.GRCh38.map \
-    ref=/data/references/imputation/reference/chr1.1kg.phase3.v5a.b37.bref3
-```
 
 ## Load Into PharMe
 

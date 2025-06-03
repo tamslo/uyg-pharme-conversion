@@ -4,6 +4,8 @@ FROM ubuntu:25.04
 
 ENV INSTALLATION_DIRECTORY=/opt
 RUN apt-get update
+RUN apt-get install -y python3
+RUN apt-get install -y python3-pip
 
 # Install plink (see https://www.cog-genomics.org/plink/1.9/)
 
