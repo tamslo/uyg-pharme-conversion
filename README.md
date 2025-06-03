@@ -102,41 +102,42 @@ docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
 
 ... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
 (also see the
-[Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf))
+[Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf)).
+
+🚧 **TODO: Make preprocessing scripts inside imputation work**
 
 ⚠️ _I had a problem for the Y chromosome reports, may be fixed if you actually_
 _have a Y chromosome; however, changing the ploidy to diploid for all Y_
 _variants for diploid in `apapt_y_ploidy.py` as part of the `impute.sh` script_
 _for now._
 
+⚠️ _The normalization tool has problems with merging description fields of_
+_some variants with missing genotype calls with the same position, therefore a_
+_script removes the INFO and FORMAT fields of duplicate positions (certainly_
+_not a nice fix and takes some time, you could also comment the script out and_
+_fix manually or only for chromosomes that cannot be normalized)._
+
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bash scripts/impute.sh data.hg38.vcf data.imputed.vcf
 ```
 
-### Normalization
+ℹ️ The normalization script already takes care of all the other preprocessing
+steps on the single chromosome files (otherwise some commands may fail on the
+large merged file).
 
-To normalize the VCF file, run
+### Normalization
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bcftools norm -m+ -c ws -Oz -o data.normalized.vcf \
-  -f /data/references/genomes/GRCh38.p13.23andMe.fa data.imputed.vcf
+  bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
 ```
-
-If you did not impute, change the `data.imputed.vcf` to `data.hg38.vcf`.
-
-If problems with the imputed file occur, consider manually editing the
-`data.imputed.vcf`. E.g., if INFO or FORMAT fields cannot be merged for the same
-positions, change the first fields to `.`.
-
-_TODO: move the adaption part into script_
 
 ### Sort by Position
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bcftools sort -Oz data.normalized.vcf -o data.sorted.vcf
+  bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
 ```
 
 ### Chromosome Fix
@@ -145,8 +146,7 @@ To prefix the chromosome with `chr`, use
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  perl -pe '/^((?!^chr).)*$/ && s/^([^#])/chr$1/gsi' \
-    data.sorted.vcf data.preprocessed.vcf
+  bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
 ```
 
 ### Inspecting PharmCAT Created Files
@@ -157,4 +157,7 @@ running the preprocessing command with the `-k` option) with:
 
 ## Load Into PharMe
 
-🚧 _TODO: parse and describe how to load into PharMe_
+🚧 _TODO: describe how to load into PharMe; e.g., without PharmCAT and master's_
+_project or properly parse and upload to (local) lab server setup. But one_
+_could also check the PharmCAT output, I guess someone who can make these_
+_scripts work will manage with the "expert version"._ 😊

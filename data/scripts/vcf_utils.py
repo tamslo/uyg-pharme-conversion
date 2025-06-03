@@ -5,6 +5,7 @@ VCF_COMMENT = '#'
 VCF_SEPARATOR = '\t'
 VCF_MISSING_VALUE = '.'
 VCF_MISSING_VALUES = [ None, '', VCF_MISSING_VALUE ]
+VCF_MISSING_GENOTYPE = f'{VCF_MISSING_VALUE}/{VCF_MISSING_VALUE}'
 
 def test_input_file(file_name):
     if not os.path.exists(file_name):
@@ -26,7 +27,6 @@ def read_vcf(file_name):
             names=vcf_header,
             dtype={ 'chrom': 'str' }
         )
-        vcf_data = vcf_data.set_index('id', drop=False)
     return vcf_data
 
 def write_vcf(input_file_name, output_file_name, output_data):
