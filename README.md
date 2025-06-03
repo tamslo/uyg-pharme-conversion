@@ -80,23 +80,15 @@ Manual preprocessing steps to fix and/or clarify problems. Also see
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
 GATK/Picard.
 
-This is taking a while, on an M3 MacBook Air with 16GB RAM it took TODO for me.
-You can maybe play around with the memory settings and parameters such as
-`--MAX_RECORDS_IN_RAM`.
-
-TODOs:
-* Full run & time estimate
-* Might need to use chain file from
-  https://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/ (also change in
-  script)
-* Also should sort, won't need the extra step
-* Test with and without imputation
+This is taking a while, on an M3 MacBook Air with 16GB RAM it took about 5h and
+30min for me. You can maybe play around with the memory settings `-Xmx12G` and
+parameters such as `--MAX_RECORDS_IN_RAM`.
   
 ```bash
 docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk \
   CreateSequenceDictionary -R /data/references/genomes/GRCh38.p13.23andMe.fa
 docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
-  --java-options  "-Xmx14G" \
+  --java-options  "-Xmx12G" \
   --TMP_DIR /data/liftover-temp \
   -I /data/data.vcf \
   -O /data/data.hg38.vcf \

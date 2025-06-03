@@ -32,9 +32,9 @@ get_reference_genome() {
 }
 
 get_chain_file() {
-    if [ ! -f "hg19ToHg38.over.chain.gz" ]; then
+    if [ ! -f "GRCh37_to_GRCh38.chain.gz" ]; then
         echo 'Getting chain file for liftover...'
-        wget -q https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
+        wget -q https://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/GRCh37_to_GRCh38.chain.gz
     fi
 }
 
