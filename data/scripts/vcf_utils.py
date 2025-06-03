@@ -24,7 +24,6 @@ def read_vcf(file_name):
             sep=VCF_SEPARATOR,
             comment=VCF_COMMENT,
             names=vcf_header,
-            # index_col='id',
             dtype={ 'chrom': 'str' }
         )
         vcf_data = vcf_data.set_index('id', drop=False)
