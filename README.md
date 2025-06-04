@@ -49,8 +49,7 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
        pharmcat_vcf_preprocessor -v -vcf data.vcf
      ```
 
-3. Optionally, impute your data; if you are not imputing, PharmCAT will have
-   quite some missing variants (see [Imputation](#imputation))
+3. Optionally, impute your data (see [Imputation](#imputation))
 4. Run PharmCAT
 
      ```bash
@@ -107,7 +106,14 @@ docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
 (also see the
 [Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf)).
 
-🚧 **TODO: Make preprocessing scripts inside imputation work**
+ℹ️ The imputation script already takes care of all the other preprocessing
+steps on the single chromosome files (otherwise some commands may fail on the
+large merged file).
+
+```bash
+docker run --rm -v ./data:/data -w /data uyg-to-pharme \
+  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
+```
 
 ⚠️ _I had a problem for the Y chromosome reports, may be fixed if you actually_
 _have a Y chromosome; however, changing the ploidy to diploid for all Y_
@@ -117,15 +123,6 @@ _for now._
 ⚠️ _The normalization tool has problems with merging description fields of_
 _some variants with missing genotype calls with the same position, therefore a_
 _script removes the INFO and FORMAT fields added in the imputation._
-
-```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
-```
-
-ℹ️ The imputation script already takes care of all the other preprocessing
-steps on the single chromosome files (otherwise some commands may fail on the
-large merged file).
 
 ⚠️ _Known problem: the normalization may fail with_
 _`Error at <chr>:<pos>: incorrect allele index 1`_
