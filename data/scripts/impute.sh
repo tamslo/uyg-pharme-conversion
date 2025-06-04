@@ -12,7 +12,7 @@ chromosomes="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X"
 
 imputation_input_vcf=$imputation_temp_dir/data.diploid.y.vcf
 
-final_postfix="chromosome_fix"
+final_postfix="preprocessed"
 
 maybe_install_python_packages() {
   requirements_file=scripts/requirements.txt
@@ -43,11 +43,11 @@ then
   python3 scripts/adapt_y_ploidy.py $input_vcf $imputation_input_vcf
 fi
 
-general_output_prefix=$imputation_temp_dir/imputed.chr
+temp_output_prefix=$imputation_temp_dir/imputed.chr
 for chromosome in $chromosomes
 do
-  chromosome_output_prefix=$general_output_prefix$chromosome
-  imputed_prefix=$chromosome_output_prefix.imputed
+  chromosome_output_prefix=$temp_output_prefix$chromosome
+  imputed_prefix=$chromosome_output_prefix
   imputed_file=$imputed_prefix.vcf.gz
   if [ ! -f "$imputed_file" ]
   then
@@ -67,41 +67,51 @@ do
     tabix -p vcf $imputed_file
   fi
   filtered_prefix=$chromosome_output_prefix.filtered
-  filtered_file=$filtered_prefix.vcf
+  filtered_file=$filtered_prefix.vcf.gz
   gp_threshold=0.75
   if [ ! -f "$filtered_file" ]
   then
     echo -e "\n📉 Filtering out GP < $gp_threshold for chromosome $chromosome...\n"
-    bcftools +setGT $imputed_file -- -t q -n . -i"FORMAT/GP>=$gp_threshold" > $filtered_file
+    bcftools plugin setGT $imputed_file -Oz -o $filtered_file -- -t q -n . -i"FORMAT/GP>=$gp_threshold"
   fi
-  normalization_fix_file=$chromosome_output_prefix.normalization_fix.vcf
-  if [ ! -f "$normalization_fix_file" ]
+  descriptions_removed_file=$chromosome_output_prefix.clean.vcf.gz
+  if [ ! -f "$descriptions_removed_file" ]
   then
-    maybe_install_python_packages
-    echo -e "\n⛑️  Fixing description fields for normalization for chromosome $chromosome...\n"
-    python3 scripts/prepare_normalization.py $filtered_file $normalization_fix_file
+    echo -e "\n⛑️  Removing description fields for normalization for chromosome $chromosome..."
+    bcftools annotate "$filtered_file" -x INFO/DR2,INFO/AF,INFO/IMP,FORMAT/DS,FORMAT/GP -Oz -o "$descriptions_removed_file"
   fi
-  normalized_file=$chromosome_output_prefix.normalized.vcf
+  normalized_file=$chromosome_output_prefix.normalized.vcf.gz
   if [ ! -f "$normalized_file" ]
   then
     echo -e "\n🔁  Normalizing chromosome $chromosome...\n"
-    bash scripts/normalize.sh $normalization_fix_file $normalized_file
+    bash scripts/normalize.sh "$descriptions_removed_file" "$normalized_file"
   fi
-  sorted_file=$chromosome_output_prefix.normalized.vcf
-  if [ ! -f "$sorted_file" ]
+  final_file=$chromosome_output_prefix.$final_postfix.vcf.gz
+  if [ ! -f "$final_file" ]
   then
-    echo -e "\n↗️  Sorting chromosome $chromosome...\n"
-    bash scripts/sort.sh $normalized_file $sorted_file
+    echo -e "\n🛠️  Prefixing chromosome $chromosome..."
+    bash scripts/fix_chromosomes.sh "$normalized_file" "$final_file"
   fi
-  chromosome_fix_file=$chromosome_output_prefix.$final_postfix.vcf
-  if [ ! -f "$chromosome_fix_file" ]
+  indexed_final_file=$final_file.tbi
+  if [ ! -f "$indexed_final_file" ]
   then
-    echo -e "\n↗️  Sorting chromosome $chromosome...\n"
-    bash scripts/fix_chromosomes.sh $sorted_file $chromosome_fix_file
+    tabix -p vcf $final_file
   fi
 done
 
+merged_file=$imputation_temp_dir/merged.imputed.vcf.gz
+if [ ! -f "$merged_file" ]
+then
+  echo -e "\n👉👈  Merging chromosomes...\n"
+  bcftools concat $temp_output_prefix*$final_postfix.vcf.gz -Oz -o $merged_file
+fi
+
+rm $temp_output_prefix*.tbi
+
 if [ ! -f "$output_vcf" ]
 then
-  bcftools concat $general_output_prefix*$final_postfix.vcf -Oz -o $output_vcf
+  echo -e "\n↗️  Sorting output...\n"
+  bash scripts/sort.sh "$normalized_file" "$output_vcf"
 fi
+
+echo -e "\n🏁 Imputation done\n"

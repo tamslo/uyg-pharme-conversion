@@ -113,18 +113,34 @@ _for now._
 
 ⚠️ _The normalization tool has problems with merging description fields of_
 _some variants with missing genotype calls with the same position, therefore a_
-_script removes the INFO and FORMAT fields of duplicate positions (certainly_
-_not a nice fix and takes some time, you could also comment the script out and_
-_fix manually or only for chromosomes that cannot be normalized)._
+_script removes the INFO and FORMAT fields added in the imputation._
 
 ```bash
 docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf
+  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
 ```
 
-ℹ️ The normalization script already takes care of all the other preprocessing
+ℹ️ The imputation script already takes care of all the other preprocessing
 steps on the single chromosome files (otherwise some commands may fail on the
 large merged file).
+
+⚠️ _Known problem: the normalization may fail with_
+_`Error at <chr>:<pos>: incorrect allele index 1`_
+
+_in this case, please review and update the `imputed.chr<chr>.clean.vcf.gz`_
+_file manually at `<pos>`, i.e., decompress, decide which variant to keep, and_
+_compress updated (see_
+_[Inspecting Intermediate Files](#inspecting-intermediate-files)), e.g.:_
+
+```bash
+docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
+currentChrom=<chr>
+# Delete incomplete normalization file
+rm imputation-temp/imputed.chr$currentChrom.normalized.vcf.gz
+bgzip -d imputation-temp/imputed.chr$currentChrom.clean.vcf.gz
+# Manually edit file at <pos> and potentially keep a record of your changes
+bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
+```
 
 ### Normalization
 
@@ -149,11 +165,22 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
 ```
 
-### Inspecting PharmCAT Created Files
+### Inspecting Intermediate Files
 
-You can check the content of (intermediate) compressed processed VCFs (when
-running the preprocessing command with the `-k` option) with:
-`docker run --rm -v ./data:/data -w /data uyg-to-pharme bgzip -k -d data.vcf.bgz`
+This may be helpful when you encounter preprocessing errors.
+
+You can check the content of (intermediate) compressed processed VCFs (for
+manual preprocessing or when running the PharmCAT preprocessing command with
+the `-k` option) with:
+
+`docker run --rm -v ./data:/data -w /data uyg-to-pharme bgzip -d <file.[b]gz>`
+
+Compress files again without the `-d` option.
+
+Sometimes it may be easier to connect with the container and use the shell
+inside:
+
+`docker run -it --rm -v ./data:/data -w /data uyg-to-pharme`
 
 ## Load Into PharMe
 
