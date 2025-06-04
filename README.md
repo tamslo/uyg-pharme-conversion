@@ -5,6 +5,9 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
 ## Prerequisites
 
+🚧 **Currently the imputed pipeline yields less results than the original**
+**preprocessed file; will need to look into this at some point**
+
 * Your genetic data in 23andMe format or in PLINK format
 * Docker installed
 * Potentially rename your data to match commands (or rename the paths in the
