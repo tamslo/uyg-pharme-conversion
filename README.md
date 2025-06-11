@@ -3,10 +3,10 @@
 Dockerfile and instructions to convert (my) genetic data from the (2020) UYG
 course :bulb: to a format that can be used by PharMe. :dna::pill:
 
-## Prerequisites
-
 🚧 **Currently the imputed pipeline yields less results than the original**
 **preprocessed file; will need to look into this at some point**
+
+## Prerequisites
 
 * Your genetic data in 23andMe format or in PLINK format
 * Docker installed
@@ -141,6 +141,11 @@ bgzip -d imputation-temp/imputed.chr$currentChrom.clean.vcf.gz
 # Manually edit file at <pos> and potentially keep a record of your changes
 bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
 ```
+
+🚧 _TODO: Could compare missing rsIDs between runs; maybe removed in merge_
+_or somehow mixed up? Could also just use specific imputed regions / just_
+_impute specific regions. Could also check out_
+_<https://geneticscores.org/>._
 
 ### Normalization
 
