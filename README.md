@@ -3,9 +3,6 @@
 Dockerfile and instructions to convert (my) genetic data from the (2020) UYG
 course :bulb: to a format that can be used by PharMe. :dna::pill:
 
-🚧 **Currently the imputed pipeline yields less results than the original**
-**preprocessed file; will need to look into this at some point**
-
 ## Prerequisites
 
 * Your genetic data in 23andMe format or in PLINK format
@@ -55,7 +52,7 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
-       pharmcat_pipeline data.[preprocessed|imputed].vcf
+       pharmcat_pipeline data.[preprocessed|imputed].vcf[.gz]
 
      ```
 
@@ -122,6 +119,34 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
   bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
 ```
 
+#### Workaround
+
+⚠️ _Currently PharmCAT directly using the `data.imputed.vcf.gz` yields less_
+_results than the original preprocessed file._
+
+Run PharmCAT with your non-imputed data first and amend imputed variants that
+are included in the `data.preprocessed.missing_pgx_var.vcf` file.
+
+```bash
+docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
+# First intersect the imputed data with positions that are interesting
+bgzip data.preprocessed.missing_pgx_var.vcf
+tabix -p vcf data.preprocessed.missing_pgx_var.vcf.gz
+tabix -p vcf data.imputed.vcf.gz
+bcftools isec -p isec_output -Oz data.imputed.vcf.gz data.preprocessed.missing_pgx_var.vcf.gz
+
+# Merge imputed and missing variants into preprocessed data
+bgzip -d data.preprocessed.vcf.bgz
+bgzip data.preprocessed.vcf
+tabix -p vcf data.preprocessed.vcf.gz
+bcftools concat -a data.preprocessed.vcf.gz isec_output/0002.vcf.gz -o data.concat.preprocessed.imputed.vcf.gz
+# TODO: getting bgzip error
+tabix -p vcf data.concat.preprocessed.imputed.vcf.gz
+bcftools sort data.concat.preprocessed.imputed.vcf.gz -Oz -o data.final.preprocessed.imputed.vcf.gz
+```
+
+#### Caveats
+
 ⚠️ _I had a problem for the Y chromosome reports, may be fixed if you actually_
 _have a Y chromosome; however, changing the ploidy to diploid for all Y_
 _variants for diploid in `apapt_y_ploidy.py` as part of the `impute.sh` script_
@@ -148,11 +173,6 @@ bgzip -d imputation-temp/imputed.chr$currentChrom.clean.vcf.gz
 # Manually edit file at <pos> and potentially keep a record of your changes
 bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
 ```
-
-🚧 _TODO: Could compare missing rsIDs between runs; maybe removed in merge_
-_or somehow mixed up? Could also just use specific imputed regions / just_
-_impute specific regions. Could also check out_
-_<https://geneticscores.org/>. First thing to check might be filtering._
 
 ### Normalization
 
