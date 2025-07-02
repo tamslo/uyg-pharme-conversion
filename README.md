@@ -22,7 +22,15 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 ## How to use
 
 1. Convert your data to VCF
-   * If your data is in 23andMe format, use
+   * If your data is in PLINK format, first convert it to 23andMe format:
+
+     ```bash
+     docker run --rm -v ./data:/data -w /data uyg-to-pharme \
+       plink --bed data.bed --bim data.bim --fam data.fam \
+         --recode 23 --out data
+     ```
+
+   * To convert the 23andMe format, do:
 
      ```bash
      docker run --rm -v ./data:/data -w /data uyg-to-pharme \
@@ -32,13 +40,6 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
      (for more information refer to this
      [BCFtools tutorial](https://samtools.github.io/bcftools/howtos/convert.html))
-   * If your data is in PLINK format, use
-
-     ```bash
-     docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-       plink --bed data.bed --bim data.bim --fam data.fam \
-         --recode vcf --out data
-     ```
 
 2. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
    if you run into any problems, such as a lot of missing variants, please
@@ -83,15 +84,21 @@ Manual preprocessing steps to fix and/or clarify problems. Also see
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
 GATK/Picard.
 
+You may want to try other liftOver tools, please make sure that not only the
+coordinates but also the genotypes are updated.
+
 This is taking a while, on an M3 MacBook Air with 16GB RAM it took about 5h and
 30min for me. You can maybe play around with the memory settings `-Xmx12G` and
 parameters such as `--MAX_RECORDS_IN_RAM`.
+From the documentation: *250k reads per GB given to the -Xmx parameter* (see
+[FAQ](https://broadinstitute.github.io/picard/faq.html)).
   
 ```bash
 docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk \
   CreateSequenceDictionary -R /data/references/genomes/GRCh38.p13.23andMe.fa
 docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
   --java-options  "-Xmx12G" \
+  --MAX_RECORDS_IN_RAM 3000000 \
   --TMP_DIR /data/liftover-temp \
   -I /data/data.vcf \
   -O /data/data.hg38.vcf \
@@ -145,7 +152,7 @@ bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
 🚧 _TODO: Could compare missing rsIDs between runs; maybe removed in merge_
 _or somehow mixed up? Could also just use specific imputed regions / just_
 _impute specific regions. Could also check out_
-_<https://geneticscores.org/>._
+_<https://geneticscores.org/>. First thing to check might be filtering._
 
 ### Normalization
 
