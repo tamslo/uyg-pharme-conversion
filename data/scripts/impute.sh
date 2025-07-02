@@ -111,7 +111,7 @@ rm $temp_output_prefix*.tbi
 if [ ! -f "$output_vcf" ]
 then
   echo -e "\n↗️  Sorting output...\n"
-  bash scripts/sort.sh "$normalized_file" "$output_vcf"
+  bash scripts/sort.sh "$merged_file" "$output_vcf"
 fi
 
 echo -e "\n🏁 Imputation done\n"
