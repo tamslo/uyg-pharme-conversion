@@ -140,7 +140,6 @@ bgzip -d data.preprocessed.vcf.bgz
 bgzip data.preprocessed.vcf
 tabix -p vcf data.preprocessed.vcf.gz
 bcftools concat -a data.preprocessed.vcf.gz isec_output/0002.vcf.gz -o data.concat.preprocessed.imputed.vcf.gz
-# TODO: getting bgzip error
 tabix -p vcf data.concat.preprocessed.imputed.vcf.gz
 bcftools sort data.concat.preprocessed.imputed.vcf.gz -Oz -o data.final.preprocessed.imputed.vcf.gz
 ```
