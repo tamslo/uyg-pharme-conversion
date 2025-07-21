@@ -117,7 +117,8 @@ bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
 #### Workaround
 
 ⚠️ *Currently PharmCAT directly using the `data.imputed.vcf.gz` yields less*
-*results than the original preprocessed file.*
+*results than the original preprocessed file. Possibly the filtering also*
+*removes actual variants, need to check this.*
 
 Run PharmCAT with your non-imputed data first and amend imputed variants that
 are included in the `data.preprocessed.missing_pgx_var.vcf` file.
