@@ -7,6 +7,20 @@ PRELOADED_DATA_DIRECTORY=/data/references
 mkdir -p $PRELOADED_DATA_DIRECTORY
 cd $PRELOADED_DATA_DIRECTORY
 
+prefix_chromosome_id() {
+    local reference_file=$1
+    local output_postfix=$2
+    local prefix=$3
+    sed -E \
+        "s/>(NC_[0-9]+\.[0-9]+) Homo sapiens chromosome ([0-9XY]+)([a-zA-Z ]*), ${reference_file} ([a-zA-Z ]*)/>$prefix\2 \1 Homo sapiens chromosome \2\3, ${reference_file} \4/" \
+        genomes/${reference_file}.fa > \
+        genomes/${reference_file}.$output_postfix.fa
+    if [ ! -f "genomes/${reference_file}.$output_postfix.fa.fai" ]; then
+        echo "Indexing reference genome..."
+        samtools faidx genomes/${reference_file}.$output_postfix.fa
+    fi
+}
+
 get_reference_genome() {
     local reference_file=$1
     local reference_gcf=$2
@@ -18,23 +32,16 @@ get_reference_genome() {
         mv GCF_000001405.${reference_gcf}_${reference_file}_genomic.fna \
             genomes/${reference_file}.fa
     fi
-    if [ ! -f "genomes/${reference_file}.23andMe.fa" ]; then
-        echo "Adpting chromosome IDs..."
-        sed -E \
-            "s/>(NC_[0-9]+\.[0-9]+) Homo sapiens chromosome ([0-9XY]+)([a-zA-Z ]*), ${reference_file} ([a-zA-Z ]*)/>\2 \1 Homo sapiens chromosome \2\3, ${reference_file} \4/" \
-            genomes/${reference_file}.fa > \
-            genomes/${reference_file}.23andMe.fa
-    fi
-    if [ ! -f "genomes/${reference_file}.23andMe.fa.fai" ]; then
-        echo "Indexing reference genome..."
-        samtools faidx genomes/${reference_file}.23andMe.fa
+    if [ ! -f "genomes/${reference_file}.num_id.fa" ]; then
+        echo "Adding numeric chromosome IDs..."
+        prefix_chromosome_id $reference_file num_id
     fi
 }
 
 get_chain_file() {
-    if [ ! -f "GRCh37_to_GRCh38.chain.gz" ]; then
+    if [ ! -f "hg19ToHg38.over.chain.gz" ]; then
         echo 'Getting chain file for liftover...'
-        wget -q https://ftp.ensembl.org/pub/assembly_mapping/homo_sapiens/GRCh37_to_GRCh38.chain.gz
+        wget -q https://hgdownload.soe.ucsc.edu/goldenPath/hg19/liftOver/hg19ToHg38.over.chain.gz
     fi
 }
 
@@ -61,9 +68,10 @@ get_imputation_data() {
 
 # Get reference genome for 23andMe to VCF conversion
 get_reference_genome 'GRCh37' '13'
-# Get reference genome used by PharmCAT for preprocessing
+# Get reference genome also used by PharmCAT for preprocessing
 get_reference_genome 'GRCh38.p13' '39'
-# Get chain file for liftover (part of preprocessing)
+# Get chain file for liftover (part of preprocessing, also uses reference
+# genomes)
 get_chain_file
 # Get reference data for imputation
 get_imputation_data

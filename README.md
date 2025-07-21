@@ -5,34 +5,55 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
 ## Prerequisites
 
-* Your genetic data in 23andMe format or in PLINK format
+### Data
+
+* (Your) genetic data in 23andMe format or in PLINK format
 * Docker installed
 * Potentially rename your data to match commands (or rename the paths in the
   commands below): `data/data.txt` (23andMe format) or in
     `data/data.bim`, `data/data.bed`, `data/data.fam` (PLINK format)
-* Build Docker container `docker build -t uyg-to-pharme .`
-* Potentially download reference files as needed, using
-   `docker run --rm -v ./data:/data -w /data uyg-to-pharme bash scripts/download_reference_data.sh`
-   (you may not need all data or any data, if the PharmCAT preprocessing works
-   for you, you can comment out what you will not need)
+
+### Setup
+
+1. Either pull this Docker image or build it locally (e.g., if you would like to
+   make changes):
+   * Pull Docker image:
+     * `docker pull ghcr.io/tamslo/uyg-pharme-conversion:main`
+     * For Apple Silicon you may need to add `--platform linux/x86_64`
+     * The container ID to start the container will be
+      `ghcr.io/tamslo/uyg-pharme-conversion:main`
+   * Clone this repository and build locally:
+     * `docker build -t uyg-to-pharme .`
+     * The container ID to start the container will be `uyg-to-pharme`
+2. Pull the latest PharmCAT image: `docker pull pgkb/pharmcat`.
+3. Potentially download reference files as needed:
+   * Start container (see [below](#how-to-use))
+   * Run script with `bash scripts/download_reference_data.sh`
+   * You will not need all if the PharmCAT preprocessing works for you or you do
+     not want to impute (comment out what you will not need at the end of
+     `scripts/download_reference_data.sh`)
 
 ## How to use
+
+Start the Docker container in one terminal window with
+`docker run -it --rm -v ./data:/data -w /data CONTAINER_ID` (e.g.,
+`docker run -it --rm -v ./data:/data -w /data ghcr.io/tamslo/uyg-pharme-conversion:main`).
+
+All commands below BUT the PharmCAT commands can be executed in this container.
 
 1. Convert your data to VCF
    * If your data is in PLINK format, first convert it to 23andMe format:
 
      ```bash
-     docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-       plink --bed data.bed --bim data.bim --fam data.fam \
-         --recode 23 --out data
+      plink --bed data.bed --bim data.bim --fam data.fam \
+        --recode 23 --out data
      ```
 
    * To convert the 23andMe format, do:
 
      ```bash
-     docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-       bcftools convert  -c ID,CHROM,POS,AA --tsv2vcf data.txt \
-         -f /data/references/genomes/GRCh37.23andMe.fa -s Sample -Oz -o data.vcf
+      bcftools convert -c ID,CHROM,POS,AA --tsv2vcf data.txt \
+        -f /data/references/genomes/GRCh37.num_id.fa -s Sample -Oz -o data.vcf
      ```
 
      (for more information refer to this
@@ -56,52 +77,27 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
      ```
 
-## Reference Genome Notes
-
-Different reference genomes are available from different sources, that may
-differ in their notations, e.g.:
-
-* The Ensembl hg19 reference genome:
-  [Ensembl GRCh37](https://ftp.ensembl.org/pub/grch37/current/fasta/homo_sapiens/dna/Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz)
-* The NCBI hg19 reference genome:
-  [NCBI GRCh37](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.13/)
-* The NCBI hg38 reference genome (what PharMe works with):
-  [GRCh38.p13](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.39/)
-
-The NCBI reference genomes are loaded and preprocessed in the
-`download_reference_data.sh` script.
-
 ## Manual Preprocessing
 
 Manual preprocessing steps to fix and/or clarify problems. Also see
 [PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements).
 
+For me, the PharmCAT preprocessing script worked after the manual liftover.
+
 ### Liftover
 
 Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
-GATK/Picard.
+the BCFTools
+[liftover plugin](https://github.com/freeseek/score?tab=readme-ov-file#liftover-vcfs).
 
-You may want to try other liftOver tools, please make sure that not only the
-coordinates but also the genotypes are updated.
-
-This is taking a while, on an M3 MacBook Air with 16GB RAM it took about 5h and
-30min for me. You can maybe play around with the memory settings `-Xmx12G` and
-parameters such as `--MAX_RECORDS_IN_RAM`.
-From the documentation: *250k reads per GB given to the -Xmx parameter* (see
-[FAQ](https://broadinstitute.github.io/picard/faq.html)).
-  
 ```bash
-docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk \
-  CreateSequenceDictionary -R /data/references/genomes/GRCh38.p13.23andMe.fa
-docker run --rm -v ./data:/data broadinstitute/gatk:4.1.3.0 ./gatk LiftoverVcf \
-  --java-options  "-Xmx12G" \
-  --MAX_RECORDS_IN_RAM 3000000 \
-  --TMP_DIR /data/liftover-temp \
-  -I /data/data.vcf \
-  -O /data/data.hg38.vcf \
-  --CHAIN /data/references/GRCh37_to_GRCh38.chain.gz \
-  --REJECT /data/liftover_rejected_variants.vcf \
-  -R /data/references/genomes/GRCh38.p13.23andMe.fa
+# Before this, manually remove lines with position zero: `	0	IlmnSeq`
+bcftools +liftover -Oz data.vcf -- \
+  -s references/genomes/GRCh37.num_id.fa \
+  -f references/genomes/GRCh38.p13.num_id.fa \
+  -c references/hg19ToHg38.over.chain.gz \
+  --reject liftover_rejected_variants.bcf \
+  -Oz data.hg38.vcf | bcftools sort -Ob -o data.hg38.vcf
 ```
 
 ### Imputation
@@ -115,8 +111,7 @@ steps on the single chromosome files (otherwise some commands may fail on the
 large merged file).
 
 ```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
+bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
 ```
 
 #### Workaround
@@ -128,7 +123,6 @@ Run PharmCAT with your non-imputed data first and amend imputed variants that
 are included in the `data.preprocessed.missing_pgx_var.vcf` file.
 
 ```bash
-docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
 # First intersect the imputed data with positions that are interesting
 bgzip data.preprocessed.missing_pgx_var.vcf
 tabix -p vcf data.preprocessed.missing_pgx_var.vcf.gz
@@ -164,7 +158,6 @@ bcftools sort data.concat.preprocessed.imputed.vcf.gz -Oz -o data.final.preproce
 *[Inspecting Intermediate Files](#inspecting-intermediate-files)), e.g.:*
 
 ```bash
-docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
 currentChrom=<chr>
 # Delete incomplete normalization file
 rm imputation-temp/imputed.chr$currentChrom.normalized.vcf.gz
@@ -176,15 +169,13 @@ bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
 ### Normalization
 
 ```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
+bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
 ```
 
 ### Sort by Position
 
 ```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
+bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
 ```
 
 ### Chromosome Fix
@@ -192,8 +183,7 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
 To prefix the chromosome with `chr`, use
 
 ```bash
-docker run --rm -v ./data:/data -w /data uyg-to-pharme \
-  bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
+bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
 ```
 
 ### Inspecting Intermediate Files
@@ -204,14 +194,9 @@ You can check the content of (intermediate) compressed processed VCFs (for
 manual preprocessing or when running the PharmCAT preprocessing command with
 the `-k` option) with:
 
-`docker run --rm -v ./data:/data -w /data uyg-to-pharme bgzip -d <file.[b]gz>`
+`bgzip -d <file.[b]gz>`
 
 Compress files again without the `-d` option.
-
-Sometimes it may be easier to connect with the container and use the shell
-inside:
-
-`docker run -it --rm -v ./data:/data -w /data uyg-to-pharme`
 
 ## Load Into PharMe
 

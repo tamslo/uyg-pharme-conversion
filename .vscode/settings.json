@@ -5,6 +5,7 @@
         "broadinstitute",
         "Chrom",
         "Ensembl",
+        "faidx",
         "gatk",
         "isec",
         "liftover",
@@ -12,6 +13,9 @@
         "pgkb",
         "pharmcat",
         "ploidy",
-        "tabix"
+        "samtools",
+        "tabix",
+        "tamslo",
+        "ucsc"
     ]
 }
