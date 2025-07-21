@@ -100,6 +100,26 @@ bcftools +liftover -Oz data.vcf -- \
   -Oz data.hg38.vcf | bcftools sort -Ob -o data.hg38.vcf
 ```
 
+### Normalization
+
+```bash
+bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
+```
+
+### Sort by Position
+
+```bash
+bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
+```
+
+### Chromosome Fix
+
+To prefix the chromosome with `chr`, use
+
+```bash
+bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
+```
+
 ### Imputation
 
 ... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
@@ -165,26 +185,6 @@ rm imputation-temp/imputed.chr$currentChrom.normalized.vcf.gz
 bgzip -d imputation-temp/imputed.chr$currentChrom.clean.vcf.gz
 # Manually edit file at <pos> and potentially keep a record of your changes
 bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
-```
-
-### Normalization
-
-```bash
-bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
-```
-
-### Sort by Position
-
-```bash
-bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
-```
-
-### Chromosome Fix
-
-To prefix the chromosome with `chr`, use
-
-```bash
-bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
 ```
 
 ### Inspecting Intermediate Files
