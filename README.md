@@ -121,8 +121,8 @@ docker run --rm -v ./data:/data -w /data uyg-to-pharme \
 
 #### Workaround
 
-⚠️ _Currently PharmCAT directly using the `data.imputed.vcf.gz` yields less_
-_results than the original preprocessed file._
+⚠️ *Currently PharmCAT directly using the `data.imputed.vcf.gz` yields less*
+*results than the original preprocessed file.*
 
 Run PharmCAT with your non-imputed data first and amend imputed variants that
 are included in the `data.preprocessed.missing_pgx_var.vcf` file.
@@ -146,22 +146,22 @@ bcftools sort data.concat.preprocessed.imputed.vcf.gz -Oz -o data.final.preproce
 
 #### Caveats
 
-⚠️ _I had a problem for the Y chromosome reports, may be fixed if you actually_
-_have a Y chromosome; however, changing the ploidy to diploid for all Y_
-_variants for diploid in `apapt_y_ploidy.py` as part of the `impute.sh` script_
-_for now._
+⚠️ *I had a problem for the Y chromosome reports, may be fixed if you actually*
+*have a Y chromosome; however, changing the ploidy to diploid for all Y*
+*variants for diploid in `adapt_y_ploidy.py` as part of the `impute.sh` script*
+*for now.*
 
-⚠️ _The normalization tool has problems with merging description fields of_
-_some variants with missing genotype calls with the same position, therefore a_
-_script removes the INFO and FORMAT fields added in the imputation._
+⚠️ *The normalization tool has problems with merging description fields of*
+*some variants with missing genotype calls with the same position, therefore a*
+*script removes the INFO and FORMAT fields added in the imputation.*
 
-⚠️ _Known problem: the normalization may fail with_
-_`Error at <chr>:<pos>: incorrect allele index 1`_
+⚠️ *Known problem: the normalization may fail with*
+*`Error at <chr>:<pos>: incorrect allele index 1`*
 
-_in this case, please review and update the `imputed.chr<chr>.clean.vcf.gz`_
-_file manually at `<pos>`, i.e., decompress, decide which variant to keep, and_
-_compress updated (see_
-_[Inspecting Intermediate Files](#inspecting-intermediate-files)), e.g.:_
+*in this case, please review and update the `imputed.chr<chr>.clean.vcf.gz`*
+*file manually at `<pos>`, i.e., decompress, decide which variant to keep, and*
+*compress updated (see*
+*[Inspecting Intermediate Files](#inspecting-intermediate-files)), e.g.:*
 
 ```bash
 docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
@@ -215,7 +215,7 @@ inside:
 
 ## Load Into PharMe
 
-🚧 _TODO: describe how to load into PharMe; e.g., without PharmCAT and master's_
-_project or properly parse and upload to (local) lab server setup. But one_
-_could also check the PharmCAT output, I guess someone who can make these_
-_scripts work will manage with the "expert version"._ 😊
+🚧 *TODO: describe how to load into PharMe; e.g., without PharmCAT and master's*
+*project or properly parse and upload to (local) lab server setup. But one*
+*could also check the PharmCAT output, I guess someone who can make these*
+*scripts work will manage with the "expert version".* 😊
