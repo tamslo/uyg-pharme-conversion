@@ -43,9 +43,6 @@ RUN apt-get install -y autoconf
 RUN apt-get install -y libopenblas0-openmp
 RUN apt-get install -y libcholmod5
 RUN apt-get install -y libsuitesparse-dev
-RUN apt-get install -y r-cran-optparse
-RUN apt-get install -y r-cran-ggplot2
-RUN apt-get install -y r-cran-data.table
 
 WORKDIR $INSTALLATION_DIRECTORY
 RUN git clone --recurse-submodules https://github.com/samtools/htslib.git
@@ -54,8 +51,8 @@ RUN git clone https://github.com/samtools/bcftools.git
 
 WORKDIR $INSTALLATION_DIRECTORY/bcftools
 
-RUN rm -f plugins/{score.{c,h},{munge,liftover,metal,blup}.c,pgs.{c,mk}}
-RUN wget -P plugins http://raw.githubusercontent.com/freeseek/score/master/{score.{c,h},{munge,liftover,metal,blup}.c,pgs.{c,mk}}
+RUN rm -f plugins/liftover.c
+RUN wget -P plugins http://raw.githubusercontent.com/freeseek/score/master/liftover.c
 RUN ln -s suitesparse/cholmod.h /usr/include/cholmod.h
 RUN ln -s suitesparse/SuiteSparse_config.h /usr/include/SuiteSparse_config.h
 
@@ -63,11 +60,6 @@ RUN autoheader
 RUN autoconf
 RUN ./configure --enable-libgsl
 RUN make
-
-RUN wget -P /bin http://raw.githubusercontent.com/freeseek/score/master/assoc_plot.R
-RUN chmod a+x /bin/assoc_plot.R
-RUN rm plugins/pgs.{c,mk}
-ENV PATH="/bin:$PATH"
 
 ENV PATH="$PATH:$INSTALLATION_DIRECTORY/bcftools"
 ENV BCFTOOLS_PLUGINS=${INSTALLATION_DIRECTORY}/bcftools/plugins
