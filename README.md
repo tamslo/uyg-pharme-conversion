@@ -5,191 +5,172 @@ course :bulb: to a format that can be used by PharMe. :dna::pill:
 
 ## Prerequisites
 
-### Data
-
-* (Your) genetic data in 23andMe format or in PLINK format
-* Docker installed
-* Potentially rename your data to match commands (or rename the paths in the
-  commands below): `data/data.txt` (23andMe format) or in
-    `data/data.bim`, `data/data.bed`, `data/data.fam` (PLINK format)
+Added times ⏱️ so you know can estimate long it takes to set up.
 
 ### Setup
 
+0. Have Docker installed 🐳
 1. Either pull this Docker image or build it locally (e.g., if you would like to
    make changes):
    * Pull Docker image:
      * `docker pull ghcr.io/tamslo/uyg-pharme-conversion:main`
      * For Apple Silicon you may need to add `--platform linux/x86_64`
-     * The container ID to start the container will be
+     * The image name to start the container will be
       `ghcr.io/tamslo/uyg-pharme-conversion:main`
+     * ⏱️ *Pulling this image took about 2 min for me.*
    * Clone this repository and build locally:
      * `docker build -t uyg-to-pharme .`
-     * The container ID to start the container will be `uyg-to-pharme`
-2. Pull the latest PharmCAT image: `docker pull pgkb/pharmcat`.
-3. Potentially download reference files as needed:
-   * Start container (see [below](#how-to-use))
-   * Run script with `bash scripts/download_reference_data.sh`
-   * You will not need all if the PharmCAT preprocessing works for you or you do
-     not want to impute (comment out what you will not need at the end of
-     `scripts/download_reference_data.sh`)
+     * The image name to start the container will be `uyg-to-pharme`
+     * ⏱️ *Building this image took about 4 min for me.*
+2. Pull the latest PharmCAT image:
+   * `docker pull pgkb/pharmcat`
+   * ⏱️ *Pulling this image took about 5 min for me.*
+3. Start the Docker container in one terminal window (replace the image name
+   if using local image)
+
+   ```bash
+   docker run -it --rm -v ./data:/data -w /data ghcr.io/tamslo/uyg-pharme-conversion:main
+   ```
+
+4. Start a separate terminal to run the PharmCAT commands 💊🐱
+
+### Data
+
+* (Your) genetic data in 23andMe format or in PLINK format
+* Potentially rename your data to match commands (or rename the paths in the
+  commands below): `data/data.txt` (23andMe format) or in
+    `data/data.bim`, `data/data.bed`, `data/data.fam` (PLINK format)
+* Potentially download reference files as needed:
+  * You will not need all files if the PharmCAT preprocessing works for you or
+    you do not want to impute (comment out what you will not need at the end of
+    `scripts/download_reference_data.sh`)
+  * Run script in Docker container `bash scripts/download_reference_data.sh`
+
+⏱️ *Downloading the reference data without imputation data took about 6.5 min*
+*for me, for the imputation data it took about 18 min.*
 
 ## How to use
-
-Start the Docker container in one terminal window with
-`docker run -it --rm -v ./data:/data -w /data CONTAINER_ID` (e.g.,
-`docker run -it --rm -v ./data:/data -w /data ghcr.io/tamslo/uyg-pharme-conversion:main`).
-
-All commands below BUT the PharmCAT commands can be executed in this container.
 
 1. Convert your data to VCF
    * If your data is in PLINK format, first convert it to 23andMe format:
 
      ```bash
-      plink --bed data.bed --bim data.bim --fam data.fam \
-        --recode 23 --out data
+     plink --bed data.bed --bim data.bim --fam data.fam --recode 23 --out data
      ```
 
    * To convert the 23andMe format, do:
 
      ```bash
-      bcftools convert -c ID,CHROM,POS,AA --tsv2vcf data.txt \
-        -f /data/references/genomes/GRCh37.num_id.fa -s Sample -Oz -o data.vcf
+     bcftools convert -c ID,CHROM,POS,AA --tsv2vcf data.txt \
+         -f /data/references/genomes/GRCh37.num_id.fa -s Sample -Oz -o data.vcf
      ```
 
      (for more information refer to this
      [BCFtools tutorial](https://samtools.github.io/bcftools/howtos/convert.html))
 
-2. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/));
-   if you run into any problems, such as a lot of missing variants, please
-   refer to the [Manual Preprocessing](#manual-preprocessing) section
+2. Liftover from hg19 to hg38:
+
+   ```bash
+   bash scripts/liftover.sh data.vcf data.hg38.vcf
+   ```
+
+   If you get `Error: the reference allele N does not match the reference  at 1:0`, filter zero positions out before lifting over
+
+   ```bash
+   mv data.vcf data.with-zero-pos.vcf
+   bcftools view --exclude 'POS=0' data.with-zero-pos.vcf -o data.vcf
+   ```
+
+3. Preprocess VCF file ([Docs](https://pharmcat.org/using/VCF-Preprocessor/))
+   💊🐱
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
-       pharmcat_vcf_preprocessor -v -vcf data.vcf
+       pharmcat_vcf_preprocessor -v -vcf data.hg38.vcf -o pharmcat-no-imputation
      ```
 
-3. Optionally, impute your data (see [Imputation](#imputation))
-4. Run PharmCAT
+    If you run into any problems, such as pretty much all variants missing, the
+    [Manual Preprocessing](#manual-preprocessing) could help to investigate.
+
+4. Optionally, impute your data (see [Imputation](#imputation))
+
+5. Run PharmCAT 💊🐱
 
      ```bash
      docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
-       pharmcat_pipeline data.[preprocessed|imputed].vcf[.gz]
-
+       pharmcat_pipeline <your_preprocessed_file>
      ```
 
-## Manual Preprocessing
+## Imputation
 
-Manual preprocessing steps to fix and/or clarify problems. Also see
-[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements).
-
-For me, the PharmCAT preprocessing script worked after the manual liftover.
-
-### Liftover
-
-Manual liftover to GRCh38.p13 (the reference genome used by PharmCAT) using
-the BCFTools
-[liftover plugin](https://github.com/freeseek/score?tab=readme-ov-file#liftover-vcfs).
+Impute and liftover your data with the following script (uses
+[Beagle 5.5](https://faculty.washington.edu/browning/beagle/beagle.html), see the [Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf))
 
 ```bash
-# Before this, manually remove lines with position zero: `	0	IlmnSeq`
-bcftools +liftover -Oz data.vcf -- \
-  -s references/genomes/GRCh37.num_id.fa \
-  -f references/genomes/GRCh38.p13.num_id.fa \
-  -c references/hg19ToHg38.over.chain.gz \
-  --reject liftover_rejected_variants.bcf \
-  -Oz data.hg38.vcf | bcftools sort -Ob -o data.hg38.vcf
+bash scripts/impute.sh data.vcf data.imputed.hg38.vcf.gz
 ```
 
-### Normalization
+Then preprocess the imputed data using the PharmCAT preprocessing script 💊🐱
 
 ```bash
-bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
+docker run --rm -v ./data:/data -w /data pgkb/pharmcat \
+  pharmcat_vcf_preprocessor -v -vcf data.imputed.hg38.vcf.gz -o pharmcat-imputed
 ```
 
-### Sort by Position
+Using this data in PharmCAT directly will (strangely) lead to more missing
+variants (if it does not for you, great, continue with the imputed data).
 
-```bash
-bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
-```
-
-### Chromosome Fix
-
-To prefix the chromosome with `chr`, use
-
-```bash
-bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
-```
-
-### Imputation
-
-... using [Beagle](https://faculty.washington.edu/browning/beagle/beagle.html)
-(also see the
-[Documentation](https://faculty.washington.edu/browning/beagle/beagle_5.5_17Dec24.pdf)).
-
-ℹ️ The imputation script already takes care of all the other preprocessing
-steps on the single chromosome files (otherwise some commands may fail on the
-large merged file).
-
-```bash
-bash scripts/impute.sh data.hg38.vcf data.imputed.vcf.gz
-```
-
-#### Workaround
-
-⚠️ *Currently PharmCAT directly using the `data.imputed.vcf.gz` yields less*
-*results than the original preprocessed file. Possibly the filtering also*
-*removes actual variants, need to check this.*
-
-Run PharmCAT with your non-imputed data first and amend imputed variants that
-are included in the `data.preprocessed.missing_pgx_var.vcf` file.
+In the following, we will merge the present data with imputed variants that were
+reported as missing when preprocessing your data (reported in
+`data.preprocessed.missing_pgx_var.vcf`).
 
 ```bash
 # First intersect the imputed data with positions that are interesting
-bgzip data.preprocessed.missing_pgx_var.vcf
-tabix -p vcf data.preprocessed.missing_pgx_var.vcf.gz
-tabix -p vcf data.imputed.vcf.gz
-bcftools isec -p isec_output -Oz data.imputed.vcf.gz data.preprocessed.missing_pgx_var.vcf.gz
+bgzip -k pharmcat-no-imputation/data.hg38.missing_pgx_var.vcf
+tabix -p vcf pharmcat-no-imputation/data.hg38.missing_pgx_var.vcf.gz
+bcftools isec -p missing-imputed \
+  -Oz pharmcat-imputed/data.imputed.hg38.preprocessed.vcf.bgz \
+  pharmcat-no-imputation/data.hg38.missing_pgx_var.vcf.gz
 
-# Merge imputed and missing variants into preprocessed data
-bgzip -d data.preprocessed.vcf.bgz
-bgzip data.preprocessed.vcf
-tabix -p vcf data.preprocessed.vcf.gz
-bcftools concat -a data.preprocessed.vcf.gz isec_output/0002.vcf.gz -o data.concat.preprocessed.imputed.vcf.gz
-tabix -p vcf data.concat.preprocessed.imputed.vcf.gz
-bcftools sort data.concat.preprocessed.imputed.vcf.gz -Oz -o data.final.preprocessed.imputed.vcf.gz
+# Merge imputed and missing variants into hg38 data
+mkdir pharmcat-missing-imputed
+bcftools concat -a pharmcat-no-imputation/data.hg38.preprocessed.vcf.bgz \
+  missing-imputed/0002.vcf.gz -o \
+  pharmcat-missing-imputed/data.hg38.missing-imputed.vcf.gz
+tabix -p vcf \
+  pharmcat-missing-imputed/data.hg38.missing-imputed.vcf.gz
+bcftools sort \
+  pharmcat-missing-imputed/data.hg38.missing-imputed.vcf.gz \
+  -Oz -o pharmcat-missing-imputed/data.hg38.preprocessed.imputed.vcf.gz
 ```
 
-#### Caveats
+Continue with running PharmCAT.
+
+Please consider the following imputation **caveats**:
+
+⚠️ *I am not sure why the imputation results in more missing variants for*
+*PharmCAT; I suppose this could happen due to the normalization but did not*
+*further look into it.*
 
 ⚠️ *I had a problem for the Y chromosome reports, may be fixed if you actually*
 *have a Y chromosome; however, changing the ploidy to diploid for all Y*
 *variants for diploid in `adapt_y_ploidy.py` as part of the `impute.sh` script*
 *for now.*
 
-⚠️ *The normalization tool has problems with merging description fields of*
-*some variants with missing genotype calls with the same position, therefore a*
-*script removes the INFO and FORMAT fields added in the imputation.*
+⚠️ *We are currently not including any quality control to the imputed data.*
 
-⚠️ *Known problem: the normalization may fail with*
-*`Error at <chr>:<pos>: incorrect allele index 1`*
+## Manual Preprocessing
 
-*in this case, please review and update the `imputed.chr<chr>.clean.vcf.gz`*
-*file manually at `<pos>`, i.e., decompress, decide which variant to keep, and*
-*compress updated (see*
-*[Inspecting Intermediate Files](#inspecting-intermediate-files)), e.g.:*
+Manual preprocessing steps to fix and/or clarify problems. Also see
+[PharmCAT Docs](https://pharmcat.org/using/VCF-Requirements).
+
+Have a look at the scripts for details.
 
 ```bash
-currentChrom=<chr>
-# Delete incomplete normalization file
-rm imputation-temp/imputed.chr$currentChrom.normalized.vcf.gz
-bgzip -d imputation-temp/imputed.chr$currentChrom.clean.vcf.gz
-# Manually edit file at <pos> and potentially keep a record of your changes
-bgzip imputation-temp/imputed.chr$currentChrom.clean.vcf
+bash scripts/normalize.sh data.hg38.vcf data.normalized.vcf
+bash scripts/sort.sh data.normalized.vcf data.sorted.vcf
+bash scripts/fix_chromosomes.sh data.sorted.vcf data.preprocessed.vcf
 ```
-
-### Inspecting Intermediate Files
-
-This may be helpful when you encounter preprocessing errors.
 
 You can check the content of (intermediate) compressed processed VCFs (for
 manual preprocessing or when running the PharmCAT preprocessing command with
@@ -201,7 +182,10 @@ Compress files again without the `-d` option.
 
 ## Load Into PharMe
 
-🚧 *TODO: describe how to load into PharMe; e.g., without PharmCAT and master's*
-*project or properly parse and upload to (local) lab server setup. But one*
-*could also check the PharmCAT output, I guess someone who can make these*
-*scripts work will manage with the "expert version".* 😊
+You can use the preprocessed VCF file to load your data in PharMe.
+
+Limitation: PharMe will only use the first possible genotype / phenotype, if
+multiple are possible.
+
+Further limitations: no CYP2D6 / HLA results (because we use PharmCAT as the
+underlying technology).

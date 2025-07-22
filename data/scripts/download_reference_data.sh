@@ -51,9 +51,9 @@ get_imputation_data() {
     mkdir -p imputation
     if [ ! -d "imputation/maps" ]; then
         echo 'Getting imputation maps...'
-        wget -q https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/plink.GRCh38.map.zip
-        unzip plink.GRCh38.map.zip -d imputation/maps
-        rm plink.GRCh38.map.zip
+        wget -q https://bochet.gcc.biostat.washington.edu/beagle/genetic_maps/plink.GRCh37.map.zip
+        unzip plink.GRCh37.map.zip -d imputation/maps
+        rm plink.GRCh37.map.zip
     fi
     if [ ! -d "imputation/reference" ]; then
         mkdir "imputation/reference"
