@@ -143,3 +143,7 @@ underlying technology).
 
 You can checkout PharMe with loading VCFs
 [here](https://github.com/hpi-dhc/PharMe/tree/vcf-testing-branch).
+
+For loading data into an iOS Simulator, check
+[this tutorial](https://medium.com/@liwp.stephen/solution-how-to-get-files-in-files-app-in-ios-simulator-de1e9c9dc6fe).
+
