@@ -140,3 +140,6 @@ multiple are possible.
 
 Further limitations: no CYP2D6 / HLA results (because we use PharmCAT as the
 underlying technology).
+
+You can checkout PharMe with loading VCFs
+[here](https://github.com/hpi-dhc/PharMe/tree/vcf-testing-branch).
