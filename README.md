@@ -10,15 +10,7 @@ Added times ⏱️ so you know can estimate long it takes to set up.
 ### Setup
 
 0. Have Docker installed 🐳
-1. Either pull this Docker image or build it locally (e.g., if you would like to
-   make changes):
-   * Pull Docker image:
-     * `docker pull ghcr.io/tamslo/uyg-pharme-conversion:main`
-     * For Apple Silicon you may need to add `--platform linux/x86_64`
-     * The image name to start the container will be
-      `ghcr.io/tamslo/uyg-pharme-conversion:main`
-     * ⏱️ *Pulling this image took about 2 min for me.*
-   * Clone this repository and build locally:
+1. Clone this repository and build the image locally:
      * `docker build -t uyg-to-pharme .`
      * The image name to start the container will be `uyg-to-pharme`
      * ⏱️ *Building this image took about 4 min for me.*
@@ -29,7 +21,7 @@ Added times ⏱️ so you know can estimate long it takes to set up.
    if using local image)
 
    ```bash
-   docker run -it --rm -v ./data:/data -w /data ghcr.io/tamslo/uyg-pharme-conversion:main
+   docker run -it --rm -v ./data:/data -w /data uyg-to-pharme
    ```
 
 4. Start a separate terminal to run the PharmCAT commands 💊🐱
